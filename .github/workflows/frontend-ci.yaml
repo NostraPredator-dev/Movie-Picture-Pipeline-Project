@@ -1,0 +1,76 @@
+name: Frontend Continuous Integration
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'starter/frontend/**'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: starter/frontend
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node_version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'starter/frontend/package-lock.json'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+  
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: starter/frontend
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node_version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'starter/frontend/package-lock.json'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: CI=true npm test
+
+  build:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: starter/frontend
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Docker Buildx
+        uses: actions/setup-buildx-action@v2
+
+      - name: Build Docker Image
+        uses: actions/build-push-action@v4
+        with:
+          context: starter/frontend
+          file: starter/frontend/Dockerfile
+          push: false
+          build-args: |
+            REACT_APP_MOVIE_API_URL=https://localhost:5000

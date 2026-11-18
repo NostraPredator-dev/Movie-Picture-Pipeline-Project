@@ -1,0 +1,65 @@
+name: Frontend Continuous Deployment
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'starter/frontend/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node_version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'starter/frontend/package-lock.json'
+
+      - name: Install Dependencies & Test/Lint
+        working-directory: starter/frontend
+        run: |
+          npm ci
+          npm run lint
+          CI=true npm test
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{secrets.AWS_ACCESS_KEY_ID}}
+          aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: frontend
+          IMAGE_TAG: ${{ github.sha }}
+        working-directory: starter/frontend
+        run: |
+          docker build --build-arg REACT_APP_MOVIE_API_URL=http://localhost:5000 -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+ 
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name cluster --region us-east-1
+ 
+      - name: Deploy to Kubernetes
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      - name: Run Kustomize and Apply
+        working-directory: starter/frontend/k8s
+        run: |
+          REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          kustomize edit set image frontend=$REGISTRY/frontend:${{ github.sha }}
+          kustomize build | kubectl apply -f -
