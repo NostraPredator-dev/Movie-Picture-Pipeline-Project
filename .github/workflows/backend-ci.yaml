@@ -24,6 +24,8 @@ jobs:
           python-version: '3.13'
  
       - name: Install Pipenv & Dependencies
+        env:
+          CFLAGS: "-Wno-error=incompatible-pointer-types"
         run: |
           pip install pipenv
           pipenv install --dev
