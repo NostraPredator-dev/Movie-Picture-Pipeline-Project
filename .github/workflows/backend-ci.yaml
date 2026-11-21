@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
  
 jobs:
-  lint-and-test:
+  lint:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,13 +33,10 @@ jobs:
           pip install pipenv
           pipenv install --dev
  
-      - name: Run linter and tests
-        run: |
-          pipenv run lint
-          pipenv run test
+      - name: Run Linter
+        run: pipenv run lint
  
-  build:
-    needs: lint-and-test
+  test:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -47,6 +44,49 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+ 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install system build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3-dev
+ 
+      - name: Install Pipenv & Dependencies
+        run: |
+          pip install pipenv
+          pipenv install --dev
+ 
+      - name: Run Tests
+        run: pipenv run test
+
+  build:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: starter/backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install system build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3-dev
+ 
+      - name: Install Pipenv & Dependencies
+        run: |
+          pip install pipenv
+          pipenv install --dev
  
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
